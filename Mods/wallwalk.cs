@@ -1,146 +1,153 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
 using GorillaLocomotion;
 using UnityEngine;
-using TextUITemplate.Management; // Needed for Main.TrueLeftHand/TrueRightHand
-using TextUITemplate.Libraries; // Needed for Interfaces.Create
-using TMPro; // Needed for TextMeshPro and TextAlignmentOptions
-using GorillaTag; // Needed for GorillaTagger.Instance
+using TextUITemplate.Management; // For Menu, Settings, Main classes
+using TextUITemplate.Libraries; // For Interfaces.Create
+using TMPro;                   // For TextMeshPro
+using GorillaTag;              // For GorillaTagger
 
 namespace TextUITemplate.Mods
 {
     public class WallWalkMod
     {
-        // A static boolean to control whether wall walk is active.
         private static bool isActive = false;
+        private static GameObject uiStatusParent = null;
+        private static TextMeshPro uiStatusText = null;
 
-        // UI elements for the Wall Walk status display
-        private static GameObject parent = null;
-        private static TextMeshPro text = null;
+        // Cached FieldInfo for performance, initialized once
+        private static FieldInfo lastHitInfoHandField = null;
 
-        // Method to activate (or 'load') the wall walk functionality
-        public static void Load()
+        // Call this once, perhaps in your Plugin.Start() or when WallWalkMod is first accessed.
+        public static void Initialize()
         {
-            if (!isActive)
+            if (lastHitInfoHandField == null)
             {
-                isActive = true;
-                Debug.Log("WallWalkMod: Activated.");
-            }
-
-            // UI Creation and Update logic (similar to PingCounter.Load())
-            if (parent == null)
-            {
-                // Create the UI display for Wall Walk status
-                Interfaces.Create("Wall Walk Status", ref parent, ref text, TextAlignmentOptions.TopRight);
-            }
-            else
-            {
-                // Ensure the UI is active if it was previously disabled
-                if (!parent.activeSelf)
-                    parent.SetActive(true);
-
-                // Update the UI text to show the status (ON)
-                string statusText = $"<size=0.7>Wall Walk: <color={Menu.Color32ToHTML(Settings.theme)}>[ON]</color></size>";
-                if (text.text != statusText)
-                    text.text = statusText;
-
-                // Ensure the shader is correct
-                if (text.renderer.material.shader != Shader.Find("GUI/Text Shader"))
-                    text.renderer.material.shader = Shader.Find("GUI/Text Shader");
-
-                // Position the UI (adjust as needed, perhaps different from main menu or ping counter)
-                // For demonstration, placing it near the head like others, but you might want it elsewhere.
-                if (GorillaTagger.hasInstance && GorillaTagger.Instance.headCollider != null)
-                {
-                    parent.transform.position = GorillaTagger.Instance.headCollider.transform.position + GorillaTagger.Instance.headCollider.transform.forward * 2.75f;
-                    parent.transform.rotation = GorillaTagger.Instance.headCollider.transform.rotation;
-                }
-            }
-        }
-
-        // Method to deactivate (or 'cleanup') the wall walk functionality
-        public static void Cleanup()
-        {
-            if (isActive)
-            {
-                isActive = false;
-                Debug.Log("WallWalkMod: Deactivated.");
-            }
-
-            // UI Cleanup logic (similar to PingCounter.Cleanup())
-            if (parent != null)
-            {
-                // Deactivate the UI display
-                if (parent.activeSelf)
-                    parent.SetActive(false);
-
-                // Optionally, destroy the GameObject entirely if you want to reclaim memory completely
-                // GameObject.Destroy(parent);
-                // parent = null;
-                // text = null;
-            }
-        }
-
-        // This method will perform the actual wall walking logic
-        // It should be called from an Update loop or similar, only when isActive is true.
-        public static void DoWallWalkLogic()
-        {
-            // IMPORTANT: This check ensures the actual wall walk mechanics only run when the mod is active.
-            if (isActive)
-            {
-                float num = 0.2f;
-                float num2 = -2f;
-
-                // Add checks for GorillaLocomotion.GTPlayer.Instance to avoid NullReferenceExceptions
-                if (GorillaLocomotion.GTPlayer.Instance == null || GorillaLocomotion.GTPlayer.Instance.bodyCollider == null)
-                {
-                    // Debug.LogWarning("WallWalkMod: GTPlayer.Instance or bodyCollider is null. Cannot perform wall walk logic.");
-                    return;
-                }
-
-                // Reflection access for lastHitInfoHand
-                // It's generally safer to cache the FieldInfo if this is called every frame,
-                // but for readability here, it's kept as is.
-                FieldInfo lastHitInfoHandField = typeof(GTPlayer).GetField("lastHitInfoHand", BindingFlags.Instance | BindingFlags.NonPublic);
+                lastHitInfoHandField = typeof(GTPlayer).GetField("lastHitInfoHand", BindingFlags.Instance | BindingFlags.NonPublic);
                 if (lastHitInfoHandField == null)
                 {
-                    // Debug.LogError("WallWalkMod: 'lastHitInfoHand' field not found via reflection.");
+                    Debug.LogError("WallWalkMod: Critical - 'lastHitInfoHand' field not found via reflection. Wall Walk will not function.");
+                }
+            }
+        }
+
+        // Called by the UI Button when toggled ON
+        public static void Enable() // Renamed from Load to Enable for consistency
+        {
+            isActive = true;
+            // UI update will be handled by Menu.cs calling UpdateStatusUI()
+            Debug.Log("WallWalkMod: Enabled.");
+        }
+
+        // Called by the UI Button when toggled OFF
+        public static void Disable() // Renamed from Cleanup to Disable
+        {
+            isActive = false;
+            // UI update will be handled by Menu.cs calling UpdateStatusUI()
+            if (uiStatusParent != null)
+            {
+                uiStatusParent.SetActive(false); // Explicitly hide UI when mod is disabled
+            }
+            Debug.Log("WallWalkMod: Disabled.");
+        }
+
+        public static bool IsCurrentlyActive()
+        {
+            return isActive;
+        }
+
+        // This method is called by Menu.Load() to update the UI status display
+        public static void UpdateStatusUI()
+        {
+            // Determine if the UI should be visible: Main menu is on AND this mod is enabled
+            bool shouldBeVisible = Menu.IsMenuToggledOn && isActive;
+
+            if (uiStatusParent == null && shouldBeVisible)
+            {
+                // Create UI only if it's supposed to be visible and doesn't exist yet
+                Interfaces.Create("WallWalk Status", ref uiStatusParent, ref uiStatusText, TextAlignmentOptions.BottomLeft); // Example: BottomLeft
+                if (uiStatusText != null) uiStatusText.fontSize = 0.35f; // Adjust as needed
+            }
+
+            if (uiStatusParent != null)
+            {
+                if (uiStatusParent.activeSelf != shouldBeVisible)
+                {
+                    uiStatusParent.SetActive(shouldBeVisible);
+                }
+
+                if (shouldBeVisible && uiStatusText != null) // Only update text if visible
+                {
+                    uiStatusText.text = $"<size=0.7>Wall Walk: <color={Menu.Color32ToHTML(Settings.theme)}>[ON]</color></size>";
+                    if (uiStatusText.renderer.material.shader != Shader.Find("GUI/Text Shader"))
+                        uiStatusText.renderer.material.shader = Shader.Find("GUI/Text Shader");
+
+                    if (GorillaTagger.hasInstance && GorillaTagger.Instance.headCollider != null)
+                    {
+                        Transform headTransform = GorillaTagger.Instance.headCollider.transform;
+                        // Example distinct position for Wall Walk UI (e.g., bottom-left of view)
+                        float forwardOffset = 1.8f;
+                        float rightOffset = -1.0f; // Negative to go left
+                        float verticalOffset = -0.6f; // Negative to go down
+                        uiStatusParent.transform.position = headTransform.position +
+                                                            (headTransform.forward * forwardOffset) +
+                                                            (headTransform.right * rightOffset) +
+                                                            (headTransform.up * verticalOffset);
+                        uiStatusParent.transform.rotation = headTransform.rotation;
+                    }
+                }
+            }
+        }
+
+        // This is the core logic. Call this from Plugin.Update() if isActive is true.
+        public static void ExecuteLogic() // Renamed from DoWallWalkLogic for clarity
+        {
+            if (!isActive || GTPlayer.Instance == null || GTPlayer.Instance.bodyCollider == null || lastHitInfoHandField == null)
+            {
+                return;
+            }
+
+            float rayLength = 0.2f;
+            float forceStrength = -2f;
+
+            try
+            {
+                RaycastHit lastHitFromGame = (RaycastHit)lastHitInfoHandField.GetValue(GTPlayer.Instance);
+                Vector3 normalToUseForRayDirection = lastHitFromGame.normal;
+
+                if (normalToUseForRayDirection == Vector3.zero) // If normal is invalid, can't determine good ray direction
+                {
+                    // Debug.LogWarning("WallWalkMod: lastHitInfoHand.normal is zero. Skipping force application.");
                     return;
                 }
 
-                try
+                // Left Hand
+                var leftHandData = Main.TrueLeftHand(); // Assuming this is from your TextUITemplate.Management.Main
+                if (leftHandData.position != Vector3.zero) // Check if hand data is valid
                 {
-                    RaycastHit raycastHitLeft = (RaycastHit)lastHitInfoHandField.GetValue(GorillaLocomotion.GTPlayer.Instance);
-                    RaycastHit raycastHitRight = (RaycastHit)lastHitInfoHandField.GetValue(GorillaLocomotion.GTPlayer.Instance); // Assuming this field holds info for both hands, or you need two distinct fields if they're separate.
-
-                    // Corrected: Unpack the value tuple and use the 'position' component
-                    // This assumes Main.TrueLeftHand() returns a tuple like (Vector3 position, Quaternion rotation, ...)
-                    var leftHandData = Main.TrueLeftHand(); // Unpacks the tuple into local variables
-                    if (leftHandData.position != null) // Check the position component for null
+                    RaycastHit hitOnWall;
+                    // Raycast from hand position, in the direction opposite to the surface normal game detected
+                    if (Physics.Raycast(leftHandData.position, -normalToUseForRayDirection, out hitOnWall, rayLength, GTPlayer.Instance.locomotionEnabledLayers))
                     {
-                        RaycastHit raycastHit2;
-                        if (Physics.Raycast(leftHandData.position, -raycastHitLeft.normal, out raycastHit2, num, GorillaLocomotion.GTPlayer.Instance.locomotionEnabledLayers))
-                        {
-                            GorillaLocomotion.GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(raycastHit2.normal * num2, ForceMode.Acceleration);
-                        }
-                    }
-
-                    var rightHandData = Main.TrueRightHand(); // Unpacks the tuple into local variables
-                    if (rightHandData.position != null) // Check the position component for null
-                    {
-                        RaycastHit raycastHit4;
-                        if (Physics.Raycast(rightHandData.position, -raycastHitRight.normal, out raycastHit4, num, GorillaLocomotion.GTPlayer.Instance.locomotionEnabledLayers))
-                        {
-                            GorillaLocomotion.GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(raycastHit4.normal * num2, ForceMode.Acceleration);
-                        }
+                        // Apply force along the normal of the wall *we just hit with our raycast*
+                        GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(hitOnWall.normal * forceStrength, ForceMode.Acceleration);
                     }
                 }
-                catch (Exception ex)
+
+                // Right Hand
+                var rightHandData = Main.TrueRightHand();
+                if (rightHandData.position != Vector3.zero)
                 {
-                    // Debug.LogError($"WallWalkMod: Error during reflection or physics calculation: {ex.Message}");
+                    RaycastHit hitOnWall;
+                    if (Physics.Raycast(rightHandData.position, -normalToUseForRayDirection, out hitOnWall, rayLength, GTPlayer.Instance.locomotionEnabledLayers))
+                    {
+                        GTPlayer.Instance.bodyCollider.attachedRigidbody.AddForce(hitOnWall.normal * forceStrength, ForceMode.Acceleration);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"WallWalkMod ExecuteLogic Error: {ex.Message}\n{ex.StackTrace}");
             }
         }
     }

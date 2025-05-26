@@ -1,7 +1,5 @@
-﻿// Path: TextUITemplate/Management/Button.cs
-using System;
-using System.Collections.Generic; // Required for List
-using TextUITemplate.Mods;       // Required for AdjustableValue
+﻿using System;
+using System.Collections.Generic;
 
 namespace TextUITemplate.Management
 {
@@ -14,6 +12,10 @@ namespace TextUITemplate.Management
         public Action action { get; set; }
         public Action disableAction { get; set; }
 
-        // AdjustableValues, HasAdjustableValues, and OnValuesChangedAction are removed
+        public List<AdjustableValue> ModAdjustableValues { get; set; } = new List<AdjustableValue>();
+        public bool HasAdjustableValues => ModAdjustableValues != null && ModAdjustableValues.Count > 0;
+
+        public List<ModPreset> Presets { get; set; } = new List<ModPreset>();
+        public bool HasPresets => Presets != null && Presets.Count > 0;
     }
 }

@@ -9,6 +9,7 @@ using TextUITemplate.Libraries;
 using TextUITemplate.Management;
 using TMPro;
 using UnityEngine;
+using Photon;
 
 namespace TextUITemplate.Mods
 {

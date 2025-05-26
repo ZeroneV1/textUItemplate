@@ -1,90 +1,99 @@
 ﻿using BepInEx;
-using TextUITemplate.Management; // Needed for Menu
-
-// Make sure your PluginInfo class is correctly defined in this namespace
-// or referenced correctly if it's in a different assembly/namespace.
-// namespace TextUITemplate { public static class PluginInfo { /* ... */ } }
+using TextUITemplate.Management;
+using TextUITemplate.Mods; // Required for static mod classes
+using UnityEngine;
 
 namespace TextUITemplate
 {
     [BepInPlugin(PluginInfo.GUID, PluginInfo.Name, PluginInfo.Version)]
     public class Plugin : BaseUnityPlugin
     {
+        private static GameObject tagReachVisualizerObject;
+
         public void OnEnable()
         {
-            Logger.LogInfo($"[{PluginInfo.Name}] OnEnable called. Attempting to apply patches.");
-            try
+            Logger.LogInfo($"[{PluginInfo.Name}] OnEnable called.");
+            TextUITemplatePatcher.ApplyPatches(true);
+
+            if (tagReachVisualizerObject == null)
             {
-                // --- CRITICAL TEST ---
-                // Temporarily comment out the line below to see if Harmony patching is causing the plugin to disable.
-                // If OnDisable is NOT called immediately after this, the issue is likely in your HarmonyPatches.Patch method.
-                HarmonyPatches.Patch(true);
-                Logger.LogInfo($"[{PluginInfo.Name}] HarmonyPatches.Patch(true) executed (or was skipped if commented out).");
+                var visualizer = TagReachVisualizer.Instance;
+                if (visualizer != null)
+                {
+                    tagReachVisualizerObject = visualizer.gameObject;
+                    DontDestroyOnLoad(tagReachVisualizerObject);
+                    Logger.LogInfo($"[{PluginInfo.Name}] TagReachVisualizer component host GameObject created/retrieved.");
+                }
             }
-            catch (System.Exception e)
+            else
             {
-                Logger.LogError($"[{PluginInfo.Name}] Error during HarmonyPatches.Patch(true): {e}");
+                if (tagReachVisualizerObject != null) tagReachVisualizerObject.SetActive(true);
             }
         }
 
         public void OnDisable()
         {
-            Logger.LogInfo($"[{PluginInfo.Name}] OnDisable called. Attempting to remove patches.");
-            try
+            Logger.LogInfo($"[{PluginInfo.Name}] OnDisable called.");
+            TextUITemplatePatcher.ApplyPatches(false);
+
+            if (TagReachMod.IsModActive()) TagReachMod.Disable();
+            if (SpeedBoost.IsActive()) SpeedBoost.Disable();
+            if (WallWalkMod.IsCurrentlyActive()) WallWalkMod.Disable();
+            if (LongJumpMod.IsModActive()) LongJumpMod.Disable();
+            // FastSnowballsMod.Disable() removed as it's not part of this reverted state
+
+            Menu.FullCleanup();
+
+            if (tagReachVisualizerObject != null)
             {
-                // --- CRITICAL TEST ---
-                // Temporarily comment out the line below if you commented out the one in OnEnable.
-                // HarmonyPatches.Patch(false);
-                Logger.LogInfo($"[{PluginInfo.Name}] HarmonyPatches.Patch(false) executed (or was skipped if commented out).");
-            }
-            catch (System.Exception e)
-            {
-                Logger.LogError($"[{PluginInfo.Name}] Error during HarmonyPatches.Patch(false): {e}");
+                Destroy(tagReachVisualizerObject);
+                tagReachVisualizerObject = null;
             }
         }
 
-        public void Start() // Unity's Start method
+        public void Start()
         {
-            Logger.LogInfo($"[{PluginInfo.Name}] Unity Start() method called. Attempting to call Menu.Start().");
+            Logger.LogInfo($"[{PluginInfo.Name}] Unity Start() method called. Initializing Menu and Mods.");
             try
             {
                 Menu.Start();
-                Logger.LogInfo($"[{PluginInfo.Name}] Menu.Start() executed successfully.");
+
+                if (typeof(WallWalkMod).GetMethod("Initialize", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null)
+                {
+                    WallWalkMod.Initialize();
+                }
+
+                Logger.LogInfo($"[{PluginInfo.Name}] Menu.Start() and Mod Initializations executed successfully.");
             }
             catch (System.Exception e)
             {
-                Logger.LogError($"[{PluginInfo.Name}] Error during Menu.Start(): {e}");
+                Logger.LogError($"[{PluginInfo.Name}] Error during Start(): {e}");
             }
         }
 
-        public void Update() // Unity's Update method
+        public void Update()
         {
-            // This log is essential to confirm Update() is running.
-            Logger.LogInfo($"[{PluginInfo.Name}][Plugin.Update] Update() method entered. Attempting to call Menu.Load().");
             try
             {
                 Menu.Load();
+
+                // MOD LOGIC EXECUTION
+                // SpeedBoost and LongJump logic are handled by the GTPlayer.LateUpdate Prefix patch.
+                // WallWalk and TagReach have logic that needs to run based on input or continuous checks here.
+
+                if (WallWalkMod.IsCurrentlyActive())
+                {
+                    WallWalkMod.ExecuteLogic();
+                }
+
+                TagReachMod.UpdateLogic(); // Manages enabling/disabling its SphereCastPatch based on input.
+
+                // Main.RefreshHeldSnowballs() and FastSnowballsMod.ExecuteLogic() removed.
             }
             catch (System.Exception e)
             {
-                Logger.LogError($"[{PluginInfo.Name}][Plugin.Update] Error during Menu.Load(): {e.ToString()}");
+                Logger.LogError($"[{PluginInfo.Name}][Plugin.Update] Error: {e.ToString()}");
             }
         }
     }
-
-    // Ensure your PluginInfo class is defined correctly and accessible.
-    // This is just a reminder of its structure; use your actual PluginInfo.cs file.
-    // public static class PluginInfo
-    // {
-    // public const string GUID = "com.finn.gorillatag.textuitemplate";
-    // public const string Name = "TextUITemplate";
-    // public const string Version = "1.0.0";
-    // }
-
-    // Ensure your HarmonyPatches class is defined correctly.
-    // This is just a structural reminder.
-    // public static class HarmonyPatches
-    // {
-    // public static void Patch(bool enable) { /* Your actual Harmony logic */ }
-    // }
 }

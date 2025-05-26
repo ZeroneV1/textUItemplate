@@ -9,7 +9,7 @@ namespace TextUITemplate.Management
 {
     public class Settings
     {
-        public static Color theme = Color.cyan;
-        public static string title = "Template";
+        public static Color theme = Color.blue;
+        public static string title = "Test";
     }
 }
