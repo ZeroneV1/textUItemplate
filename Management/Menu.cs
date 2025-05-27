@@ -7,6 +7,7 @@ using TextUITemplate.Mods;
 using TMPro;
 using UnityEngine;
 using GorillaTag;
+using Photon.Pun; // For PhotonNetwork
 
 namespace TextUITemplate.Management
 {
@@ -28,6 +29,9 @@ namespace TextUITemplate.Management
         public static string CurrentSelectedButtonTitle { get; private set; } = string.Empty;
         public static string CurrentSelectedButtonTooltip { get; private set; } = string.Empty;
         public static bool IsMenuToggledOn => toggled;
+
+        private const string DISCONNECT_BUTTON_TITLE = "Disconnect";
+        private const string DISCONNECT_BUTTON_TOOLTIP = "Disconnects from the current Photon room.";
 
 
         public static void Start()
@@ -117,64 +121,17 @@ namespace TextUITemplate.Management
 
             index = 0;
             cooldown = Time.time + 0.2f;
-            UpdateAdjustableMenuFocus(null);
+            Button[] currentFrameDisplayableButtons = GetCurrentFrameDisplayableButtons();
+            UpdateAdjustableMenuFocus(currentFrameDisplayableButtons, index);
         }
 
-        public static void Load()
+        private static Button[] GetCurrentFrameDisplayableButtons()
         {
-            if (!GorillaTagger.hasInstance)
-            {
-                if (parent != null && parent.activeSelf) parent.SetActive(false);
-                ToolTips.Cleanup();
-                PingCounter.Cleanup();
-                AdjustableMenu.Cleanup();
-                if (typeof(WallWalkMod).GetMethod("UpdateStatusUI", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null) WallWalkMod.UpdateStatusUI();
-                return;
-            }
-
-            if (parent == null)
-            {
-                Interfaces.Create("PrimaryMenu", ref parent, ref text, TextAlignmentOptions.TopRight);
-                parent.GetComponent<RectTransform>().sizeDelta = new Vector2(2.2f, 2.5f);
-                text.fontSize = 0.5f;
-            }
-
-            Shader menuShader = Shader.Find("GUI/Text Shader");
-            if (text.renderer.material.shader != menuShader)
-                text.renderer.material.shader = menuShader;
-
-            if (ControllerInputs.leftStick() || UnityInput.Current.GetKeyDown(KeyCode.Tab))
-            {
-                if (Time.time >= cooldown)
-                {
-                    toggled = !toggled;
-                    cooldown = Time.time + 0.25f;
-                    UpdateAdjustableMenuFocus(null);
-                    if (!toggled)
-                    {
-                        ToolTips.Cleanup();
-                        PingCounter.Cleanup();
-                        if (typeof(WallWalkMod).GetMethod("UpdateStatusUI", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null) WallWalkMod.UpdateStatusUI();
-                    }
-                }
-            }
-
-            parent.SetActive(toggled);
-
-            if (!toggled)
-            {
-                AdjustableMenu.UpdateUI();
-                return;
-            }
-
             Button[] allButtonsOnCurrentLogicalPage = (pages.Count > page_index && page_index >= 0) ? pages[page_index] : new Button[0];
             List<Button> buttonsToDisplayThisFrameList = new List<Button>();
             int totalButtonsOnLogicalPage = allButtonsOnCurrentLogicalPage.Length;
             int itemsPerPageToConsiderForPagination = MODS_PER_PAGE;
             int totalDisplayPagesRequired = (totalButtonsOnLogicalPage > 0) ? (int)Math.Ceiling((double)totalButtonsOnLogicalPage / itemsPerPageToConsiderForPagination) : 1;
-
-            if (current_display_page < 0) current_display_page = 0;
-            if (current_display_page >= totalDisplayPagesRequired) current_display_page = totalDisplayPagesRequired - 1;
 
             if (current_display_page > 0)
             {
@@ -196,76 +153,160 @@ namespace TextUITemplate.Management
             {
                 buttonsToDisplayThisFrameList.Add(new Button { title = "Page >", tooltip = "Next Page", isToggleable = false, action = () => ChangeDisplayPage(1) });
             }
+            return buttonsToDisplayThisFrameList.ToArray();
+        }
 
-            Button[] currentFrameDisplayableButtons_local = buttonsToDisplayThisFrameList.ToArray();
 
-            if (index >= currentFrameDisplayableButtons_local.Length && currentFrameDisplayableButtons_local.Length > 0)
-                index = currentFrameDisplayableButtons_local.Length - 1;
-            else if (currentFrameDisplayableButtons_local.Length == 0 && index != 0)
-                index = 0;
-            else if (index < 0 && currentFrameDisplayableButtons_local.Length > 0)
-                index = 0;
-
-            UpdateAdjustableMenuFocus(currentFrameDisplayableButtons_local);
-
-            if (Time.time >= cooldown && currentFrameDisplayableButtons_local.Length > 0)
+        public static void Load()
+        {
+            if (!GorillaTagger.hasInstance)
             {
-                if (ControllerInputs.RightStickUp() || UnityInput.Current.GetKeyDown(KeyCode.UpArrow))
+                if (parent != null && parent.activeSelf) parent.SetActive(false);
+                ToolTips.Cleanup();
+                PingCounter.Cleanup();
+                AdjustableMenu.Cleanup();
+                if (typeof(WallWalkMod).GetMethod("UpdateStatusUI", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null) WallWalkMod.UpdateStatusUI();
+                return;
+            }
+
+            if (parent == null)
+            {
+                Interfaces.Create("PrimaryMenu", ref parent, ref text, TextAlignmentOptions.TopRight);
+                parent.GetComponent<RectTransform>().sizeDelta = new Vector2(2.2f, 2.8f);
+                text.fontSize = 0.5f;
+            }
+
+            Shader menuShader = Shader.Find("GUI/Text Shader");
+            if (text.renderer.material.shader != menuShader)
+                text.renderer.material.shader = menuShader;
+
+            if (ControllerInputs.leftStick() || UnityInput.Current.GetKeyDown(KeyCode.Tab))
+            {
+                if (Time.time >= cooldown)
                 {
-                    if (index > 0) index--; else index = currentFrameDisplayableButtons_local.Length - 1;
-                    cooldown = Time.time + 0.20f;
-                    UpdateAdjustableMenuFocus(currentFrameDisplayableButtons_local);
-                }
-                if (ControllerInputs.RightStickDown() || UnityInput.Current.GetKeyDown(KeyCode.DownArrow))
-                {
-                    if (index < currentFrameDisplayableButtons_local.Length - 1) index++; else index = 0;
-                    cooldown = Time.time + 0.20f;
-                    UpdateAdjustableMenuFocus(currentFrameDisplayableButtons_local);
-                }
-                if (ControllerInputs.rightStick() || UnityInput.Current.GetKeyDown(KeyCode.Return) || UnityInput.Current.GetKeyDown(KeyCode.RightArrow))
-                {
-                    if (index >= 0 && index < currentFrameDisplayableButtons_local.Length)
+                    toggled = !toggled;
+                    cooldown = Time.time + 0.25f;
+                    Button[] currentFrameButtons = GetCurrentFrameDisplayableButtons();
+                    UpdateAdjustableMenuFocus(currentFrameButtons, index); // Update focus based on current index
+                    if (!toggled)
                     {
-                        Button selectedButton = currentFrameDisplayableButtons_local[index];
-
-                        if (selectedButton.action != null)
-                        {
-                            selectedButton.action();
-                        }
-
-                        if (selectedButton.isToggleable)
-                        {
-                            selectedButton.toggled = !selectedButton.toggled;
-                            if (!selectedButton.toggled && selectedButton.disableAction != null)
-                            {
-                                selectedButton.disableAction();
-                            }
-                        }
-                        cooldown = Time.time + 0.20f;
-                        UpdateAdjustableMenuFocus(currentFrameDisplayableButtons_local);
+                        ToolTips.Cleanup();
+                        PingCounter.Cleanup();
+                        AdjustableMenu.Cleanup();
+                        if (typeof(WallWalkMod).GetMethod("UpdateStatusUI", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null) WallWalkMod.UpdateStatusUI();
                     }
                 }
             }
 
-            string display = $"<size={text.fontSize * 1.2f}><color={Color32ToHTML(Settings.theme)}>{Settings.title} (DP {current_display_page + 1}/{Math.Max(1, totalDisplayPagesRequired)})</color></size>\n";
-            if (currentFrameDisplayableButtons_local.Length == 0)
+            parent.SetActive(toggled);
+            AdjustableMenu.UpdateUI();
+
+            if (!toggled)
             {
-                display += (totalButtonsOnLogicalPage == 0 && current_display_page == 0) ? "No items on this page." : " (Empty View)";
+                return;
+            }
+
+            Button[] currentFrameDisplayableButtons_local = GetCurrentFrameDisplayableButtons();
+            int numRegularButtons = currentFrameDisplayableButtons_local.Length;
+            int totalSelectableUIItems = numRegularButtons + 1; // +1 for the Disconnect button
+
+            // Ensure index is within valid bounds *before* input processing for this frame
+            if (totalSelectableUIItems > 0)
+            {
+                if (index >= totalSelectableUIItems) index = totalSelectableUIItems - 1;
+                if (index < 0) index = 0;
             }
             else
             {
-                for (int i = 0; i < currentFrameDisplayableButtons_local.Length; i++)
+                index = 0; // Should not happen if Disconnect is always an option
+            }
+
+            if (Time.time >= cooldown && totalSelectableUIItems > 0)
+            {
+                bool navigated = false;
+                if (ControllerInputs.RightStickUp() || UnityInput.Current.GetKeyDown(KeyCode.UpArrow))
                 {
-                    display += $"{(i == index ? "-> " : "   ")}{currentFrameDisplayableButtons_local[i].title} ";
-                    if (currentFrameDisplayableButtons_local[i].isToggleable)
-                        display += currentFrameDisplayableButtons_local[i].toggled ? $"<color={Color32ToHTML(Settings.theme)}>[ON]</color>" : "<color=red>[OFF]</color>";
-                    display += "\n";
+                    if (index > 0) index--; else index = totalSelectableUIItems - 1;
+                    navigated = true;
+                }
+                else if (ControllerInputs.RightStickDown() || UnityInput.Current.GetKeyDown(KeyCode.DownArrow)) // Use 'else if' for exclusive navigation
+                {
+                    if (index < totalSelectableUIItems - 1) index++; else index = 0;
+                    navigated = true;
+                }
+
+                if (navigated)
+                {
+                    cooldown = Time.time + 0.20f;
+                    UpdateAdjustableMenuFocus(currentFrameDisplayableButtons_local, index);
+                }
+                // Separate block for activation, can happen without navigation on the same frame if cooldown allows
+                else if (ControllerInputs.rightStick() || UnityInput.Current.GetKeyDown(KeyCode.Return) || UnityInput.Current.GetKeyDown(KeyCode.RightArrow))
+                {
+                    if (index >= 0 && index < totalSelectableUIItems) // Redundant check if clamping above is perfect, but safe
+                    {
+                        if (index < numRegularButtons)
+                        {
+                            Button selectedButton = currentFrameDisplayableButtons_local[index];
+                            if (selectedButton.action != null)
+                            {
+                                selectedButton.action();
+                            }
+                            if (selectedButton.isToggleable)
+                            {
+                                selectedButton.toggled = !selectedButton.toggled;
+                                if (!selectedButton.toggled && selectedButton.disableAction != null)
+                                {
+                                    selectedButton.disableAction();
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (PhotonNetwork.IsConnected)
+                            {
+                                PhotonNetwork.Disconnect();
+                            }
+                            toggled = false;
+                            ToolTips.Cleanup();
+                            PingCounter.Cleanup();
+                            AdjustableMenu.Cleanup();
+                            if (typeof(WallWalkMod).GetMethod("UpdateStatusUI", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null) WallWalkMod.UpdateStatusUI();
+                        }
+                        cooldown = Time.time + 0.20f; // Cooldown after activation
+                        UpdateAdjustableMenuFocus(currentFrameDisplayableButtons_local, index);
+                    }
                 }
             }
+            // Removed the problematic 'else' block that reset index during cooldown.
+
+            Button[] allButtonsOnCurrentLogicalPage = (pages.Count > page_index && page_index >= 0) ? pages[page_index] : new Button[0];
+            int totalButtonsOnLogicalPage = allButtonsOnCurrentLogicalPage.Length;
+            int itemsPerPageToConsiderForPagination = MODS_PER_PAGE;
+            int totalDisplayPagesRequired = (totalButtonsOnLogicalPage > 0) ? (int)Math.Ceiling((double)totalButtonsOnLogicalPage / itemsPerPageToConsiderForPagination) : 1;
+
+            string display = $"<size={text.fontSize * 1.2f}><color={Color32ToHTML(Settings.theme)}>{Settings.title} (Page {current_display_page + 1}/{Math.Max(1, totalDisplayPagesRequired)})</color></size>\n";
+
+            if (numRegularButtons == 0)
+            {
+                if (totalButtonsOnLogicalPage == 0 && current_display_page == 0) display += "No items on this page.\n";
+                else display += " (Empty View)\n";
+            }
+
+            for (int i = 0; i < numRegularButtons; i++)
+            {
+                display += $"{(i == index ? "-> " : "   ")}{currentFrameDisplayableButtons_local[i].title} ";
+                if (currentFrameDisplayableButtons_local[i].isToggleable)
+                    display += currentFrameDisplayableButtons_local[i].toggled ? $"<color={Color32ToHTML(Settings.theme)}>[ON]</color>" : "<color=red>[OFF]</color>";
+                display += "\n";
+            }
+
+            display += $"{(index == numRegularButtons ? "-> " : "   ")}{DISCONNECT_BUTTON_TITLE}\n";
+
             text.text = display;
 
             Transform headTransform = GorillaTagger.Instance.headCollider.transform;
-            float mainVerticalOffset = -0.35f; // Your specified positioning
+            float mainVerticalOffset = -0.45f;
             parent.transform.position = headTransform.position + (headTransform.forward * 2.75f) + (headTransform.up * mainVerticalOffset);
             parent.transform.rotation = headTransform.rotation;
 
@@ -280,36 +321,41 @@ namespace TextUITemplate.Management
             {
                 WallWalkMod.UpdateStatusUI();
             }
-
-            AdjustableMenu.UpdateUI();
         }
 
-        // Reverted UpdateAdjustableMenuFocus
-        private static void UpdateAdjustableMenuFocus(Button[] currentFrameButtons = null)
+        private static void UpdateAdjustableMenuFocus(Button[] modButtonsOnCurrentFrame, int currentSelectionIndex)
         {
             Button currentlyHoveredButtonForAdjustableMenu = null;
-            Button buttonForTooltipAndTitle = null;
+            string selectedTitle = string.Empty;
+            string selectedTooltip = string.Empty;
 
-            if (toggled && currentFrameButtons != null && currentFrameButtons.Length > 0 && index >= 0 && index < currentFrameButtons.Length)
+            if (toggled)
             {
-                buttonForTooltipAndTitle = currentFrameButtons[index];
-
-                if (!buttonForTooltipAndTitle.title.Contains("Page"))
+                if (modButtonsOnCurrentFrame != null && currentSelectionIndex >= 0 && currentSelectionIndex < modButtonsOnCurrentFrame.Length)
                 {
-                    currentlyHoveredButtonForAdjustableMenu = buttonForTooltipAndTitle;
+                    Button buttonForTooltipAndTitle = modButtonsOnCurrentFrame[currentSelectionIndex];
+                    if (buttonForTooltipAndTitle != null)
+                    {
+                        selectedTitle = buttonForTooltipAndTitle.title;
+                        selectedTooltip = buttonForTooltipAndTitle.tooltip;
+
+                        if (!buttonForTooltipAndTitle.title.Contains("< Page") && !buttonForTooltipAndTitle.title.Contains("Page >") &&
+                            (buttonForTooltipAndTitle.HasAdjustableValues || buttonForTooltipAndTitle.HasPresets))
+                        {
+                            currentlyHoveredButtonForAdjustableMenu = buttonForTooltipAndTitle;
+                        }
+                    }
+                }
+                else if (currentSelectionIndex == (modButtonsOnCurrentFrame?.Length ?? 0)) // Handles Disconnect or empty modButtons case
+                {
+                    selectedTitle = DISCONNECT_BUTTON_TITLE;
+                    selectedTooltip = DISCONNECT_BUTTON_TOOLTIP;
+                    currentlyHoveredButtonForAdjustableMenu = null;
                 }
             }
 
-            if (buttonForTooltipAndTitle != null)
-            {
-                CurrentSelectedButtonTitle = buttonForTooltipAndTitle.title;
-                CurrentSelectedButtonTooltip = buttonForTooltipAndTitle.tooltip;
-            }
-            else
-            {
-                CurrentSelectedButtonTitle = string.Empty;
-                CurrentSelectedButtonTooltip = string.Empty;
-            }
+            CurrentSelectedButtonTitle = selectedTitle;
+            CurrentSelectedButtonTooltip = selectedTooltip;
             AdjustableMenu.SetFocusedMod(currentlyHoveredButtonForAdjustableMenu);
         }
 
@@ -322,7 +368,8 @@ namespace TextUITemplate.Management
                 current_display_page = 0;
                 index = 0;
                 cooldown = Time.time + 0.2f;
-                UpdateAdjustableMenuFocus(null);
+                Button[] currentFrameButtons = GetCurrentFrameDisplayableButtons();
+                UpdateAdjustableMenuFocus(currentFrameButtons, index);
             }
         }
 
@@ -354,10 +401,12 @@ namespace TextUITemplate.Management
             AdjustableMenu.Cleanup();
             if (typeof(WallWalkMod).GetMethod("UpdateStatusUI", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null)
             {
+                if (WallWalkMod.IsCurrentlyActive()) WallWalkMod.Disable();
                 WallWalkMod.UpdateStatusUI();
             }
-            pages.Clear();
             toggled = false;
+            index = 0;
+            current_display_page = 0;
         }
     }
 }
