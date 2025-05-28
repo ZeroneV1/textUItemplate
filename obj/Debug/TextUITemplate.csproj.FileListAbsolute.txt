@@ -384,3 +384,6 @@ C:\Users\ralgh\Downloads\TextUITemplate-main\TextUITemplate-main\TextUITemplate\
 C:\Users\ralgh\Downloads\TextUITemplate-main\TextUITemplate-main\TextUITemplate\bin\Debug\MonoMod.RuntimeDetour.xml
 C:\Users\ralgh\Downloads\TextUITemplate-main\TextUITemplate-main\TextUITemplate\bin\Debug\MonoMod.Utils.xml
 C:\Users\ralgh\Downloads\TextUITemplate-main\TextUITemplate-main\TextUITemplate\obj\Debug\TextUITe.E0BE2665.Up2Date
+C:\Users\ralgh\Downloads\TextUITemplate-main\TextUITemplate-main\TextUITemplate\bin\Debug\Newtonsoft.Json.dll
+C:\Users\ralgh\Downloads\TextUITemplate-main\TextUITemplate-main\TextUITemplate\bin\Debug\Newtonsoft.Json.UnityConverters.Addressables.dll
+C:\Users\ralgh\Downloads\TextUITemplate-main\TextUITemplate-main\TextUITemplate\bin\Debug\Newtonsoft.Json.UnityConverters.dll

@@ -1,6 +1,6 @@
 ﻿using BepInEx;
-using TextUITemplate.Management;
-using TextUITemplate.Mods; // Required for static mod classes
+using TextUITemplate.Management; // Ensure this is here for AutoConfigManager
+using TextUITemplate.Mods;
 using UnityEngine;
 
 namespace TextUITemplate
@@ -17,7 +17,7 @@ namespace TextUITemplate
 
             if (tagReachVisualizerObject == null)
             {
-                var visualizer = TagReachVisualizer.Instance;
+                var visualizer = TagReachVisualizer.Instance; // TagReachVisualizer.cs
                 if (visualizer != null)
                 {
                     tagReachVisualizerObject = visualizer.gameObject;
@@ -34,15 +34,19 @@ namespace TextUITemplate
         public void OnDisable()
         {
             Logger.LogInfo($"[{PluginInfo.Name}] OnDisable called.");
-            TextUITemplatePatcher.ApplyPatches(false);
 
-            if (TagReachMod.IsModActive()) TagReachMod.Disable();
-            if (SpeedBoost.IsActive()) SpeedBoost.Disable();
-            if (WallWalkMod.IsCurrentlyActive()) WallWalkMod.Disable();
-            if (LongJumpMod.IsModActive()) LongJumpMod.Disable();
-            // FastSnowballsMod.Disable() removed as it's not part of this reverted state
+            // Optional: Force a save on disable/quit if the menu is open or always.
+            // AutoConfigManager.ForceSaveOnExit(); //
 
-            Menu.FullCleanup();
+            TextUITemplatePatcher.ApplyPatches(false); // HarmonyPatches.cs
+
+            // Ensure mods are disabled before full menu cleanup
+            if (TagReachMod.IsModActive()) TagReachMod.Disable(); // TagReachMod.cs
+            if (SpeedBoost.IsActive()) SpeedBoost.Disable(); // SpeedBoost.cs
+            if (WallWalkMod.IsCurrentlyActive()) WallWalkMod.Disable(); // wallwalk.cs
+            if (LongJumpMod.IsModActive()) LongJumpMod.Disable(); // LongJumpMod.cs
+
+            Menu.FullCleanup(); // Management/Menu.cs
 
             if (tagReachVisualizerObject != null)
             {
@@ -56,14 +60,16 @@ namespace TextUITemplate
             Logger.LogInfo($"[{PluginInfo.Name}] Unity Start() method called. Initializing Menu and Mods.");
             try
             {
-                Menu.Start();
+                Menu.Start(); // Management/Menu.cs - Ensures pages and buttons are initialized
 
                 if (typeof(WallWalkMod).GetMethod("Initialize", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null)
                 {
-                    WallWalkMod.Initialize();
+                    WallWalkMod.Initialize(); // wallwalk.cs
                 }
 
-                Logger.LogInfo($"[{PluginInfo.Name}] Menu.Start() and Mod Initializations executed successfully.");
+                AutoConfigManager.Initialize(); // Initialize and load config AFTER Menu.Start()
+
+                Logger.LogInfo($"[{PluginInfo.Name}] Menu.Start(), Mod Initializations, and AutoConfigManager.Initialize() executed successfully.");
             }
             catch (System.Exception e)
             {
@@ -75,20 +81,20 @@ namespace TextUITemplate
         {
             try
             {
-                Menu.Load();
+                Menu.Load(); // Management/Menu.cs - Handles menu display and input
+                AutoConfigManager.Update(); // Handles timed auto-saving
 
                 // MOD LOGIC EXECUTION
                 // SpeedBoost and LongJump logic are handled by the GTPlayer.LateUpdate Prefix patch.
                 // WallWalk and TagReach have logic that needs to run based on input or continuous checks here.
 
-                if (WallWalkMod.IsCurrentlyActive())
+                if (WallWalkMod.IsCurrentlyActive()) // wallwalk.cs
                 {
-                    WallWalkMod.ExecuteLogic();
+                    WallWalkMod.ExecuteLogic(); // wallwalk.cs
                 }
 
-                TagReachMod.UpdateLogic(); // Manages enabling/disabling its SphereCastPatch based on input.
+                TagReachMod.UpdateLogic(); // TagReachMod.cs - Manages enabling/disabling its SphereCastPatch based on input.
 
-                // Main.RefreshHeldSnowballs() and FastSnowballsMod.ExecuteLogic() removed.
             }
             catch (System.Exception e)
             {

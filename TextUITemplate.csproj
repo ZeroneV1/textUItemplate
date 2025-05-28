@@ -36,6 +36,8 @@
     <Compile Include="Libraries\Interfaces.cs" />
     <Compile Include="Management\AdjustableMenu.cs" />
     <Compile Include="Management\AdjustableValue.cs" />
+    <Compile Include="Management\AutoConfigData.cs" />
+    <Compile Include="Management\AutoConfigManager.cs" />
     <Compile Include="Management\Button.cs" />
     <Compile Include="Management\Main.cs" />
     <Compile Include="Management\Menu.cs" />
@@ -48,6 +50,7 @@
     <Compile Include="Mods\TagReachVisualiser.cs" />
     <Compile Include="Mods\ToolTips.cs" />
     <Compile Include="Mods\wallwalk.cs" />
+    <Compile Include="Mods\WeatherMod.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="PluginInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -94,6 +97,12 @@
     </Reference>
     <Reference Include="MonoMod.Utils">
       <HintPath>..\..\..\..\..\..\Program Files\Oculus\Software\Software\another-axiom-gorilla-tag\BepInEx\core\MonoMod.Utils.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\..\..\..\..\..\Program Files\Oculus\Software\Software\another-axiom-gorilla-tag\Gorilla Tag_Data\Managed\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json.UnityConverters.Addressables">
+      <HintPath>..\..\..\..\..\..\Program Files\Oculus\Software\Software\another-axiom-gorilla-tag\Gorilla Tag_Data\Managed\Newtonsoft.Json.UnityConverters.Addressables.dll</HintPath>
     </Reference>
     <Reference Include="Oculus.Interaction.OVR">
       <HintPath>..\..\..\..\..\..\Program Files\Oculus\Software\Software\another-axiom-gorilla-tag\Gorilla Tag_Data\Managed\Oculus.Interaction.OVR.dll</HintPath>
@@ -198,9 +207,6 @@
     </Reference>
     <Reference Include="UnityEngine.XRModule">
       <HintPath>..\..\..\..\..\..\Program Files\Oculus\Software\Software\another-axiom-gorilla-tag\Gorilla Tag_Data\Managed\UnityEngine.XRModule.dll</HintPath>
-    </Reference>
-    <Reference Include="Valve.Newtonsoft.Json">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gorilla Tag\Gorilla Tag_Data\Managed\Valve.Newtonsoft.Json.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
