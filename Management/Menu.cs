@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using TextUITemplate.Libraries;
-using TextUITemplate.Mods;
+using TextUITemplate.Mods; // Make sure this is present
 using TMPro;
 using UnityEngine;
 using GorillaTag;
@@ -17,14 +17,14 @@ namespace TextUITemplate.Management
         private static TextMeshPro text = null;
 
         private static bool toggled = false;
-        public static int page_index = 0; // 0: Main Mods, 1: Example Page
+        public static int page_index = 0;
         public static int index = 0;
         private static float cooldown;
 
         public static List<Button[]> pages = new List<Button[]>();
 
         private static int current_display_page = 0;
-        private const int MODS_PER_PAGE = 7;
+        private const int MODS_PER_PAGE = 7; // Number of mods to show before needing pagination within a logical page
 
         public static string CurrentSelectedButtonTitle { get; private set; } = string.Empty;
         public static string CurrentSelectedButtonTooltip { get; private set; } = string.Empty;
@@ -36,12 +36,18 @@ namespace TextUITemplate.Management
         public static void Start()
         {
             pages.Clear();
-            // WeatherMod.InitializeOrRefreshState(); // Moved to Plugin.Start() before Menu.Start()
+
+            // Initialize mods that need it before menu setup, if any (e.g., WeatherMod)
+            // if (typeof(WeatherMod).GetMethod("InitializeOrRefreshState", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null)
+            // {
+            // WeatherMod.InitializeOrRefreshState();
+            // }
+
 
             // Page 0: Main Mods
             List<Button> mainPageButtons = new List<Button>
             {
-                new Button { // MODIFIED WEATHER CONTROL BUTTON
+                new Button {
                     title = "Weather Control",
                     tooltip = "Toggle custom weather. Settings via Left Stick.",
                     isToggleable = true,
@@ -52,7 +58,7 @@ namespace TextUITemplate.Management
                     {
                         new AdjustableValue
                         {
-                            Name = "Time of Day", // Displayed in AdjustableMenu
+                            Name = "Time of Day",
                             ValType = AdjustableValueType.Int,
                             GetValue = () => WeatherMod.CurrentTimeOptionIndex,
                             SetValue = (val) => WeatherMod.ApplyTimeFromIndex((int)val),
@@ -63,11 +69,62 @@ namespace TextUITemplate.Management
                         },
                         new AdjustableValue
                         {
-                            Name = "Enable Rain", // Displayed in AdjustableMenu
+                            Name = "Enable Rain",
                             ValType = AdjustableValueType.Bool,
                             GetValue = () => WeatherMod.IsRainDesired(),
                             SetValue = (val) => WeatherMod.SetRain((bool)val),
                             OnValueChanged = (val) => WeatherMod.SetRain((bool)val)
+                        }
+                    }
+                },
+                new Button { // NAMETAGS MOD BUTTON
+                    title = "Nametags",
+                    tooltip = "Toggle and configure player nametags.",
+                    isToggleable = true,
+                    toggled = NameTagsMod.IsModActive(), // Get initial state
+                    action = () => NameTagsMod.EnableMod(),
+                    disableAction = () => NameTagsMod.DisableMod(),
+                    ModAdjustableValues = new List<AdjustableValue>
+                    {
+                        new AdjustableValue
+                        {
+                            Name = "Show Standard Tags",
+                            ValType = AdjustableValueType.Bool,
+                            GetValue = () => NameTagsMod.IsStandardNameTagsActive(),
+                            SetValue = (val) => NameTagsMod.SetShowStandardNameTags((bool)val),
+                            OnValueChanged = (val) => NameTagsMod.SetShowStandardNameTags((bool)val)
+                        },
+                        new AdjustableValue
+                        {
+                            Name = "Show Velocity Tags",
+                            ValType = AdjustableValueType.Bool,
+                            GetValue = () => NameTagsMod.IsVelocityTagsActive(),
+                            SetValue = (val) => NameTagsMod.SetShowVelocityTags((bool)val),
+                            OnValueChanged = (val) => NameTagsMod.SetShowVelocityTags((bool)val)
+                        },
+                        new AdjustableValue
+                        {
+                            Name = "Show FPS Tags",
+                            ValType = AdjustableValueType.Bool,
+                            GetValue = () => NameTagsMod.IsFPSTagsActive(),
+                            SetValue = (val) => NameTagsMod.SetShowFPSTags((bool)val),
+                            OnValueChanged = (val) => NameTagsMod.SetShowFPSTags((bool)val)
+                        },
+                        new AdjustableValue
+                        {
+                            Name = "Show Turn Tags",
+                            ValType = AdjustableValueType.Bool,
+                            GetValue = () => NameTagsMod.IsTurnTagsActive(),
+                            SetValue = (val) => NameTagsMod.SetShowTurnTags((bool)val),
+                            OnValueChanged = (val) => NameTagsMod.SetShowTurnTags((bool)val)
+                        },
+                        new AdjustableValue
+                        {
+                            Name = "Show Tagged By Tags",
+                            ValType = AdjustableValueType.Bool,
+                            GetValue = () => NameTagsMod.IsTaggedByTagsActive(),
+                            SetValue = (val) => NameTagsMod.SetShowTaggedByTags((bool)val),
+                            OnValueChanged = (val) => NameTagsMod.SetShowTaggedByTags((bool)val)
                         }
                     }
                 },
@@ -117,8 +174,6 @@ namespace TextUITemplate.Management
                 current_display_page = 0;
                 index = 0;
                 cooldown = Time.time + 0.2f;
-
-                // No special logic needed here anymore for weather page, as it's part of main page's adjustable values
                 Button[] currentFrameButtons = GetCurrentFrameDisplayableButtons();
                 UpdateAdjustableMenuFocus(currentFrameButtons, index);
             }
@@ -139,6 +194,8 @@ namespace TextUITemplate.Management
 
             if (current_display_page < 0) current_display_page = 0;
             if (current_display_page >= totalDisplayPagesRequired) current_display_page = totalDisplayPagesRequired - 1;
+            if (current_display_page < 0) current_display_page = 0; // Ensure it's not negative if totalDisplayPagesRequired is 0
+
 
             index = 0;
             cooldown = Time.time + 0.2f;
@@ -153,6 +210,7 @@ namespace TextUITemplate.Management
             int totalButtonsOnLogicalPage = allButtonsOnCurrentLogicalPage.Length;
             int itemsPerPageToConsiderForPagination = MODS_PER_PAGE;
             int totalDisplayPagesRequired = (totalButtonsOnLogicalPage > 0) ? (int)Math.Ceiling((double)totalButtonsOnLogicalPage / itemsPerPageToConsiderForPagination) : 1;
+            if (totalDisplayPagesRequired == 0 && totalButtonsOnLogicalPage == 0) totalDisplayPagesRequired = 1; // Handle empty logical page
 
             if (current_display_page > 0)
             {
@@ -177,7 +235,6 @@ namespace TextUITemplate.Management
             return buttonsToDisplayThisFrameList.ToArray();
         }
 
-        // Helper method to get the actual toggle state of a mod
         private static bool GetActualModState(string buttonTitle)
         {
             if (buttonTitle == "Weather Control") return WeatherMod.IsModCurrentlyActive();
@@ -185,8 +242,9 @@ namespace TextUITemplate.Management
             if (buttonTitle == "Tag Reach") return TagReachMod.IsModActive();
             if (buttonTitle == "Speed Boost") return SpeedBoost.IsActive();
             if (buttonTitle == "Long Jump") return LongJumpMod.IsModActive();
-            // For simple mods without a dedicated IsActive function, assume their Button.toggled IS the state
-            Button btn = FindButtonByTitle(buttonTitle); // Could be slow if called often, but needed for generic case
+            if (buttonTitle == "Nametags") return NameTagsMod.IsModActive();
+
+            Button btn = FindButtonByTitle(buttonTitle);
             return btn != null ? btn.toggled : false;
         }
 
@@ -205,7 +263,7 @@ namespace TextUITemplate.Management
             if (parent == null)
             {
                 Interfaces.Create("PrimaryMenu", ref parent, ref text, TextAlignmentOptions.TopRight);
-                parent.GetComponent<RectTransform>().sizeDelta = new Vector2(2.2f, 2.8f);
+                parent.GetComponent<RectTransform>().sizeDelta = new Vector2(2.2f, 2.8f); // Increased height
                 text.fontSize = 0.5f;
             }
 
@@ -254,6 +312,7 @@ namespace TextUITemplate.Management
                 index = 0;
             }
 
+
             if (Time.time >= cooldown && totalSelectableUIItems > 0)
             {
                 bool navigated = false;
@@ -283,22 +342,21 @@ namespace TextUITemplate.Management
                             if (selectedButton.isToggleable)
                             {
                                 bool currentActualModState = GetActualModState(selectedButton.title);
-                                if (currentActualModState) // If mod is currently ON, pressing it means call disableAction
+                                if (currentActualModState)
                                 {
                                     selectedButton.disableAction?.Invoke();
                                 }
-                                else // If mod is currently OFF, pressing it means call action
+                                else
                                 {
                                     selectedButton.action?.Invoke();
                                 }
-                                // The display will be updated in the next frame based on the new GetActualModState()
                             }
-                            else // Not toggleable, just run action (e.g., page navigation)
+                            else
                             {
                                 selectedButton.action?.Invoke();
                             }
                         }
-                        else // This is the Disconnect button
+                        else
                         {
                             if (PhotonNetwork.IsConnected)
                             {
@@ -320,6 +378,8 @@ namespace TextUITemplate.Management
             int totalButtonsOnLogicalPage_display = allButtonsOnCurrentLogicalPage_display.Length;
             int itemsPerPageToConsiderForPagination_display = MODS_PER_PAGE;
             int totalDisplayPagesRequired_display = (totalButtonsOnLogicalPage_display > 0) ? (int)Math.Ceiling((double)totalButtonsOnLogicalPage_display / itemsPerPageToConsiderForPagination_display) : 1;
+            if (totalDisplayPagesRequired_display == 0 && totalButtonsOnLogicalPage_display == 0) totalDisplayPagesRequired_display = 1;
+
 
             string display = $"<size={text.fontSize * 1.2f}><color={Color32ToHTML(Settings.theme)}>{Settings.title} (Page {current_display_page + 1}/{Math.Max(1, totalDisplayPagesRequired_display)})</color></size>\n";
 
@@ -332,11 +392,11 @@ namespace TextUITemplate.Management
             for (int i = 0; i < numRegularButtons; i++)
             {
                 Button currentButtonToDisplay = currentFrameDisplayableButtons_local[i];
-                bool actualModStateForDisplay = currentButtonToDisplay.toggled; // Default to its own state
-                if (currentButtonToDisplay.isToggleable) // For toggleable mods, get their true state for display
+                bool actualModStateForDisplay = currentButtonToDisplay.toggled;
+                if (currentButtonToDisplay.isToggleable)
                 {
                     actualModStateForDisplay = GetActualModState(currentButtonToDisplay.title);
-                    currentButtonToDisplay.toggled = actualModStateForDisplay; // Keep button object synced for AdjustableMenu if it reads this
+                    currentButtonToDisplay.toggled = actualModStateForDisplay;
                 }
 
                 display += $"{(i == index ? "-> " : "   ")}{currentButtonToDisplay.title} ";
@@ -363,7 +423,7 @@ namespace TextUITemplate.Management
             Button wallWalkButton = FindButtonByTitle("Wall Walk");
             if (wallWalkButton != null && typeof(WallWalkMod).GetMethod("UpdateStatusUI", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null)
             {
-                WallWalkMod.UpdateStatusUI(); // This method internally checks WallWalkMod.IsCurrentlyActive()
+                WallWalkMod.UpdateStatusUI();
             }
         }
 
@@ -390,7 +450,7 @@ namespace TextUITemplate.Management
                         }
                     }
                 }
-                else if (currentSelectionIndex == (modButtonsOnCurrentFrame?.Length ?? 0))
+                else if (currentSelectionIndex == (modButtonsOnCurrentFrame?.Length ?? 0)) // If Disconnect is selected
                 {
                     selectedTitle = DISCONNECT_BUTTON_TITLE;
                     selectedTooltip = DISCONNECT_BUTTON_TOOLTIP;
@@ -434,6 +494,7 @@ namespace TextUITemplate.Management
                 if (WallWalkMod.IsCurrentlyActive()) WallWalkMod.Disable();
                 WallWalkMod.UpdateStatusUI();
             }
+            if (NameTagsMod.IsModActive()) NameTagsMod.DisableMod(); // Cleanup Nametags mod
             toggled = false;
             index = 0;
             current_display_page = 0;
